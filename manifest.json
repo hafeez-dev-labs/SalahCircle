@@ -1,0 +1,14 @@
+{
+  "id": "./",
+  "name": "SalahCircle",
+  "short_name": "SalahCircle",
+  "description": "A calm family companion for Salah times, reminders, and dhikr.",
+  "lang": "en",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f8f7f1",
+  "theme_color": "#102f28",
+  "icons": [{ "src": "./icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

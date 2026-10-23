@@ -10,15 +10,16 @@ const PRAYERS = [
   { key: "Maghrib", label: "Maghrib", glyph: "☾", caption: "Sunset" },
   { key: "Isha", label: "Isha", glyph: "✦", caption: "Night" }
 ];
-const DEFAULTS = { locationName:"Ambernath, India", latitude:19.20, longitude:73.19, method:"1", notifications:false, adhanEnabled:false, adhanUrl:"", dhikrTarget:33, dhikrCount:0, dhikrPhrase:"SubhanAllah", lastReminder:"", familyMembers:[{id:"member-1",name:"Family",role:"Our circle"}], attendance:{}, quranPages:0, quranGoal:5, quranDate:new Date().toLocaleDateString("en-CA"), intentions:[], favourites:[], ramadan:{date:new Date().toLocaleDateString("en-CA"),fast:false,quran:false,charity:false,taraweeh:false} };
+const DEFAULTS = { locationName:"Ambernath, India", latitude:19.20, longitude:73.19, method:"1", notifications:false, adhanEnabled:false, adhanUrl:"https://archive.org/download/adhan.recordings.from.doha.qatar/Adhan_Doha_Qatar_02_Dhuhr_Adhan.mp3", dhikrTarget:33, dhikrCount:0, dhikrPhrase:"SubhanAllah", lastReminder:"", familyMembers:[{id:"member-1",name:"Family",role:"Our circle"}], attendance:{}, quranPages:0, quranGoal:5, quranDate:new Date().toLocaleDateString("en-CA"), intentions:[], favourites:[], ramadan:{date:new Date().toLocaleDateString("en-CA"),fast:false,quran:false,charity:false,taraweeh:false} };
 let state: AppState = loadState();
 let timings = [];
+let timingsDate = "";
 let deferredInstallPrompt = null;
 let toastTimeout = null;
 let reminderInterval = null;
 const $ = (id: string): any => document.getElementById(id);
 function loadState(): AppState {
-  try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") as Partial<AppState> }; }
+  try { const saved = { ...DEFAULTS, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") as Partial<AppState> }; if (!saved.adhanUrl) saved.adhanUrl = DEFAULTS.adhanUrl; return saved; }
   catch { return { ...DEFAULTS }; }
 }
 function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
@@ -82,8 +83,11 @@ async function fetchPrayerTimes() {
     const source = payload.data.timings;
     timings = PRAYERS.map((p) => ({ ...p, time:source[p.key] })).filter((p) => p.time);
     if (!timings.length) throw new Error("No prayer timings were returned.");
+    timingsDate = todayKey();
     updateHeader(); renderNextPrayer();
-    $("times-note").textContent = "Calculation: " + ((payload.data.meta && payload.data.meta.method && payload.data.meta.method.name) || "selected method") + " · Asr: Hanafi. Confirm timings with your local mosque if needed.";
+    const timezone = payload.data.meta && payload.data.meta.timezone;
+    const deviceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    $("times-note").textContent = "Calculation: " + ((payload.data.meta && payload.data.meta.method && payload.data.meta.method.name) || "selected method") + " · Asr: Hanafi · Timezone: " + (timezone || deviceTimezone || "device local time") + ". Confirm timings with your local mosque; methods and local timetables can differ.";
     scheduleReminders();
   } catch (error) {
     $("prayer-list").innerHTML = '<div class="loading-row">Could not load prayer times. Check your connection and try again.</div>';
@@ -99,15 +103,20 @@ function renderDhikr() {
 function scheduleReminders() {
   if (reminderInterval) clearInterval(reminderInterval);
   if (!state.notifications && !state.adhanEnabled) return;
-  reminderInterval = setInterval(checkDuePrayer, 15000); checkDuePrayer();
+  reminderInterval = setInterval(() => { if (timingsDate !== todayKey()) { fetchPrayerTimes(); return; } checkDuePrayer(); }, 15000); checkDuePrayer();
 }
 function checkDuePrayer() {
   if (!timings.length) return;
   const now = new Date(); const today = now.toDateString();
   for (const prayer of timings.filter((p) => p.key !== "Sunrise")) {
     const date = timeDate(prayer.time);
-    if (!date || Math.abs(now.getTime() - date.getTime()) > 20000) continue;
-    const key = today + ":" + prayer.key; if (state.lastReminder === key) continue;
+    if (!date) continue;
+    const delay = now.getTime() - date.getTime();
+    if (delay < 0 || delay > 5 * 60 * 1000) continue;
+    const key = today + ":" + prayer.key;
+    const firedKey = "salahcircle-fired-" + key;
+    if (localStorage.getItem(firedKey) === "1") continue;
+    localStorage.setItem(firedKey, "1");
     state.lastReminder = key; saveState();
     if (state.notifications && "Notification" in window && Notification.permission === "granted") {
       try { new Notification("It’s time for " + prayer.label, { body:"A gentle Salah reminder · " + state.locationName, icon:"./icons/icon.svg", tag:key }); } catch { /* Browser may restrict notification delivery. */ }
@@ -128,6 +137,21 @@ async function playAdhan(showFeedback = true) {
     const parsed = new URL(url); if (!["https:", "http:"].includes(parsed.protocol)) throw new Error("Use an HTTPS audio URL.");
     audio.src = parsed.href; await audio.play(); if (showFeedback) showToast("Playing Adhan audio.");
   } catch { if (showFeedback) showToast("Audio could not play. Check the URL and browser permissions."); }
+}
+function useDeviceLocation() {
+  if (!navigator.geolocation) { showToast("Device location is not supported by this browser."); return; }
+  const button = $("use-device-location");
+  button.disabled = true; button.textContent = "Finding location…";
+  navigator.geolocation.getCurrentPosition(position => {
+    $("latitude").value = position.coords.latitude.toFixed(6);
+    $("longitude").value = position.coords.longitude.toFixed(6);
+    $("location-name").value = "Current device location";
+    button.disabled = false; button.textContent = "◎ Use device location";
+    showToast("Location found. Save settings to refresh prayer times.");
+  }, error => {
+    button.disabled = false; button.textContent = "◎ Use device location";
+    showToast(error.code === 1 ? "Location permission was denied." : "Could not determine your location. Enter coordinates manually.");
+  }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 });
 }
 function openSettings() {
   $("location-name").value = state.locationName; $("latitude").value = state.latitude; $("longitude").value = state.longitude;
@@ -186,6 +210,7 @@ $("intention-list").addEventListener("click",event=>{const button=event.target.c
 $("save-reflection").addEventListener("click",()=>{const id=$("save-reflection").dataset.reflection;state.favourites=state.favourites.includes(id)?state.favourites.filter(v=>v!==id):[...state.favourites,id];saveState();renderReflection();showToast(state.favourites.includes(id)?"Reflection saved on this device.":"Reflection removed.");});
 ["fast","quran","charity","taraweeh"].forEach(k=>$("ramadan-"+k).addEventListener("change",event=>{state.ramadan[k]=event.target.checked;saveState();renderRamadan();}));
 $("settings-open").addEventListener("click", openSettings);
+$("use-device-location").addEventListener("click", useDeviceLocation);
 $("refresh-times").addEventListener("click", fetchPrayerTimes);
 $("settings-form").addEventListener("submit", saveSettings);
 $("counter-button").addEventListener("click", () => {

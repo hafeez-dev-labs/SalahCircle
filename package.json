@@ -1,0 +1,13 @@
+{
+  "name": "salahcircle",
+  "private": true,
+  "version": "1.1.0",
+  "description": "A family-friendly Salah and dhikr progressive web app",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "5.8.3"
+  }
+}

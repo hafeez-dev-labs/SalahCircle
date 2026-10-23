@@ -7,11 +7,12 @@ const PRAYERS = [
   { key: "Maghrib", label: "Maghrib", glyph: "☾", caption: "Sunset" },
   { key: "Isha", label: "Isha", glyph: "✦", caption: "Night" }
 ];
-const DEFAULTS = { locationName:"Ambernath, India", latitude:19.20, longitude:73.19, method:"1", notifications:false, adhanEnabled:false, adhanUrl:"", dhikrTarget:33, dhikrCount:0, dhikrPhrase:"SubhanAllah", lastReminder:"" };
+const DEFAULTS = { locationName:"Ambernath, India", latitude:19.20, longitude:73.19, method:"1", notifications:false, adhanEnabled:false, adhanUrl:"", dhikrTarget:33, dhikrCount:0, dhikrPhrase:"SubhanAllah", lastReminder:"", familyMembers:[{id:"member-1",name:"Family",role:"Our circle"}], attendance:{}, quranPages:0, quranGoal:5, quranDate:new Date().toLocaleDateString("en-CA"), intentions:[], favourites:[], ramadan:{date:new Date().toLocaleDateString("en-CA"),fast:false,quran:false,charity:false,taraweeh:false} };
 let state = loadState();
 let timings = [];
 let deferredInstallPrompt = null;
 let toastTimeout = null;
+let reminderInterval = null;
 const $ = (id) => document.getElementById(id);
 function loadState() {
   try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") }; }
@@ -46,6 +47,7 @@ function upcomingPrayer() {
 function updateHeader() {
   $("today-label").textContent = new Date().toLocaleDateString([], { weekday:"long", month:"long", day:"numeric" });
   $("location-label").textContent = state.locationName || (state.latitude + ", " + state.longitude);
+  $("hijri-date").textContent = new Intl.DateTimeFormat("en-TN-u-ca-islamic", {day:"numeric",month:"short",year:"numeric"}).format(new Date());
 }
 function renderPrayers() {
   const now = new Date(); const active = upcomingPrayer().prayer;
@@ -92,9 +94,9 @@ function renderDhikr() {
   $("dhikr-progress").style.width = Math.min(100, state.dhikrCount / state.dhikrTarget * 100) + "%";
 }
 function scheduleReminders() {
-  if (window.reminderInterval) clearInterval(window.reminderInterval);
+  if (reminderInterval) clearInterval(reminderInterval);
   if (!state.notifications && !state.adhanEnabled) return;
-  window.reminderInterval = setInterval(checkDuePrayer, 15000); checkDuePrayer();
+  reminderInterval = setInterval(checkDuePrayer, 15000); checkDuePrayer();
 }
 function checkDuePrayer() {
   if (!timings.length) return;
@@ -145,6 +147,41 @@ function saveSettings(event) {
   if (previousLocation !== [state.latitude, state.longitude, state.method].join(",")) fetchPrayerTimes();
   else showToast("Settings saved on this device.");
 }
+
+function todayKey() { const d = new Date(); return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-"); }
+function safeText(v) { return String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function renderFamily() {
+  const members=state.familyMembers||DEFAULTS.familyMembers, attendance=state.attendance[todayKey()]||{};
+  const complete=members.filter(m=>["Fajr","Dhuhr","Asr","Maghrib","Isha"].every(p=>attendance[m.id+":"+p])).length;
+  $("family-summary").textContent=members.length+" "+(members.length===1?"member":"members")+" · "+complete+" completed all five check-ins";
+  $("family-board").innerHTML=members.map(m=>'<article class="member-card"><div class="member-top"><span class="member-avatar">'+safeText(m.name.charAt(0).toUpperCase())+'</span><span class="member-meta"><strong>'+safeText(m.name)+'</strong><small>'+safeText(m.role)+'</small></span><button class="quiet-button remove-member" data-id="'+safeText(m.id)+'" aria-label="Remove member">×</button></div><div class="attendance-grid">'+["Fajr","Dhuhr","Asr","Maghrib","Isha"].map(p=>{const key=m.id+":"+p,checked=!!attendance[key];return '<label class="attendance-pill '+(checked?"checked":"")+'"><input type="checkbox" data-attendance="'+key+'" '+(checked?"checked":"")+'><span>'+p+'</span></label>';}).join("")+'</div></article>').join("");
+}
+function renderQuran() {
+  if(state.quranDate!==todayKey()){state.quranDate=todayKey();state.quranPages=0;}
+  $("quran-pages").textContent=state.quranPages;$("quran-goal").textContent=state.quranGoal;
+  $("quran-progress").style.width=Math.min(100,state.quranPages/state.quranGoal*100)+"%";
+  $("quran-status").textContent=state.quranPages>=state.quranGoal?"Daily reading goal reached, mashaAllah.":Math.max(0,state.quranGoal-state.quranPages)+" pages to reach today’s goal";saveState();
+}
+const REFLECTIONS=[
+{id:"13:28",arabic:"أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ",meaning:"Surely in the remembrance of Allah do hearts find comfort.",reference:"Qur’an 13:28"},
+{id:"20:114",arabic:"رَبِّ زِدْنِي عِلْمًا",meaning:"My Lord, increase me in knowledge.",reference:"Qur’an 20:114"},
+{id:"2:201",arabic:"رَبَّنَا آتِنَا فِي الدُّنْيَا حَسَنَةً وَفِي الْآخِرَةِ حَسَنَةً وَقِنَا عَذَابَ النَّارِ",meaning:"Our Lord, grant us good in this world and good in the Hereafter, and protect us from the punishment of the Fire.",reference:"Qur’an 2:201"}];
+function renderReflection(){const item=REFLECTIONS[Math.floor(Date.now()/86400000)%REFLECTIONS.length];$("reflection-arabic").textContent=item.arabic;$("reflection-meaning").textContent=item.meaning;$("reflection-reference").textContent=item.reference;const saved=state.favourites.includes(item.id);$("save-reflection").textContent=saved?"♥ Saved":"♡ Save reflection";$("save-reflection").dataset.reflection=item.id;$("save-reflection").setAttribute("aria-pressed",String(saved));$("favourite-count").textContent=state.favourites.length;}
+function renderIntentions(){$("intention-list").innerHTML=state.intentions.length?state.intentions.map(i=>'<li class="intention-item '+(i.done?"done":"")+'"><label><input type="checkbox" data-intention="'+i.id+'" '+(i.done?"checked":"")+'><span>'+safeText(i.text)+'</span></label><button class="quiet-button delete-intention" data-id="'+i.id+'" aria-label="Delete intention">×</button></li>').join(""):'<li class="empty-state">Add a dua, a hope, or a small act of kindness.</li>';}
+function renderRamadan(){if(state.ramadan.date!==todayKey())state.ramadan={date:todayKey(),fast:false,quran:false,charity:false,taraweeh:false};["fast","quran","charity","taraweeh"].forEach(k=>{$("ramadan-"+k).checked=state.ramadan[k];});$("ramadan-progress").textContent=[state.ramadan.fast,state.ramadan.quran,state.ramadan.charity,state.ramadan.taraweeh].filter(Boolean).length+" of 4 intentions";saveState();}
+function addFamilyMember(event){event.preventDefault();const input=$("member-name"),name=input.value.trim();if(!name)return;state.familyMembers.push({id:"member-"+Date.now(),name,role:$("member-role").value||"Family"});input.value="";saveState();renderFamily();showToast("Added to this device’s family circle.");}
+function addFamilyIntention(event){event.preventDefault();const input=$("intention-input"),text=input.value.trim();if(!text)return;state.intentions.unshift({id:"intention-"+Date.now(),text,done:false});input.value="";saveState();renderIntentions();}
+
+$("family-form").addEventListener("submit",addFamilyMember);
+$("family-board").addEventListener("change",event=>{const key=event.target.dataset.attendance;if(!key)return;if(!state.attendance[todayKey()])state.attendance[todayKey()]={};state.attendance[todayKey()][key]=event.target.checked;saveState();renderFamily();});
+$("family-board").addEventListener("click",event=>{const button=event.target.closest(".remove-member");if(!button||!confirm("Remove this family member from this device?"))return;state.familyMembers=state.familyMembers.filter(m=>m.id!==button.dataset.id);Object.values(state.attendance).forEach(day=>Object.keys(day).forEach(key=>{if(key.startsWith(button.dataset.id+":"))delete day[key];}));saveState();renderFamily();});
+$("quran-log-form").addEventListener("submit",event=>{event.preventDefault();const amount=Number($("quran-pages-input").value);if(!Number.isInteger(amount)||amount<1||amount>604){showToast("Enter pages from 1 to 604.");return;}if(state.quranDate!==todayKey()){state.quranDate=todayKey();state.quranPages=0;}state.quranPages=Math.min(604,state.quranPages+amount);$("quran-pages-input").value="";saveState();renderQuran();});
+$("quran-goal-form").addEventListener("submit",event=>{event.preventDefault();const goal=Number($("quran-goal-input").value);if(!Number.isInteger(goal)||goal<1||goal>604){showToast("Choose a goal from 1 to 604 pages.");return;}state.quranGoal=goal;$("quran-goal-input").value="";saveState();renderQuran();showToast("Daily Quran goal updated.");});
+$("intention-form").addEventListener("submit",addFamilyIntention);
+$("intention-list").addEventListener("change",event=>{const item=state.intentions.find(i=>i.id===event.target.dataset.intention);if(item){item.done=event.target.checked;saveState();renderIntentions();}});
+$("intention-list").addEventListener("click",event=>{const button=event.target.closest(".delete-intention");if(!button)return;state.intentions=state.intentions.filter(i=>i.id!==button.dataset.id);saveState();renderIntentions();});
+$("save-reflection").addEventListener("click",()=>{const id=$("save-reflection").dataset.reflection;state.favourites=state.favourites.includes(id)?state.favourites.filter(v=>v!==id):[...state.favourites,id];saveState();renderReflection();showToast(state.favourites.includes(id)?"Reflection saved on this device.":"Reflection removed.");});
+["fast","quran","charity","taraweeh"].forEach(k=>$("ramadan-"+k).addEventListener("change",event=>{state.ramadan[k]=event.target.checked;saveState();renderRamadan();}));
 $("settings-open").addEventListener("click", openSettings);
 $("refresh-times").addEventListener("click", fetchPrayerTimes);
 $("settings-form").addEventListener("submit", saveSettings);
@@ -170,4 +207,4 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) { re
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
 }
-renderDhikr(); updateHeader(); fetchPrayerTimes(); setInterval(renderNextPrayer, 1000);
+renderDhikr(); updateHeader(); renderFamily(); renderQuran(); renderReflection(); renderIntentions(); renderRamadan(); fetchPrayerTimes(); setInterval(renderNextPrayer, 1000);

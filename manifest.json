@@ -1,14 +1,14 @@
 {
   "id": "./",
-  "name": "SalahCircle",
+  "name": "SalahCircle · Family Worship Companion",
   "short_name": "SalahCircle",
-  "description": "A calm family companion for Salah times, reminders, and dhikr.",
+  "description": "A private family companion for Salah, Quran reading, dhikr, and daily intentions.",
   "lang": "en",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#f8f7f1",
-  "theme_color": "#102f28",
+  "background_color": "#fbf8ef",
+  "theme_color": "#123d32",
   "icons": [{ "src": "./icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
 }

@@ -26,6 +26,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Install TypeScript compiler
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Type-check TypeScript source
+        run: npm run typecheck
+      - name: Build browser JavaScript
+        run: npm run build
       - name: Validate JavaScript syntax
         run: node --check app.js
       - name: Check required PWA files

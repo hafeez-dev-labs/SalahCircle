@@ -7,16 +7,21 @@ const PRAYERS = [
   { key: "Maghrib", label: "Maghrib", glyph: "☾", caption: "Sunset" },
   { key: "Isha", label: "Isha", glyph: "✦", caption: "Night" }
 ];
-const DEFAULTS = { locationName:"Ambernath, India", latitude:19.20, longitude:73.19, method:"1", notifications:false, adhanEnabled:false, adhanUrl:"https://archive.org/download/adhan.recordings.from.doha.qatar/Adhan_Doha_Qatar_02_Dhuhr_Adhan.mp3", dhikrTarget:33, dhikrCount:0, dhikrPhrase:"SubhanAllah", lastReminder:"", familyMembers:[{id:"member-1",name:"Family",role:"Our circle"}], attendance:{}, quranPages:0, quranGoal:5, quranDate:new Date().toLocaleDateString("en-CA"), intentions:[], favourites:[], ramadan:{date:new Date().toLocaleDateString("en-CA"),fast:false,quran:false,charity:false,taraweeh:false} };
+const DEFAULTS = { locationName:"Ambernath, India", latitude:19.20, longitude:73.19, method:"1", notifications:false, adhanEnabled:false, adhanUrl:"./assets/adhan.ogg", dhikrTarget:33, dhikrCount:0, dhikrPhrase:"SubhanAllah", lastReminder:"", familyMembers:[{id:"member-1",name:"Family",role:"Our circle"}], attendance:{}, quranPages:0, quranGoal:5, quranDate:new Date().toLocaleDateString("en-CA"), intentions:[], favourites:[], ramadan:{date:new Date().toLocaleDateString("en-CA"),fast:false,quran:false,charity:false,taraweeh:false} };
 let state = loadState();
 let timings = [];
 let timingsDate = "";
+let prayerTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+let prayerDateKey = "";
+let calendarDays = [];
+let prayerWindows = [];
+const PrayerTimeCore = window.SalahCirclePrayerTimeCore;
 let deferredInstallPrompt = null;
 let toastTimeout = null;
 let reminderInterval = null;
 const $ = (id) => document.getElementById(id);
 function loadState() {
-  try { const saved = { ...DEFAULTS, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") }; if (!saved.adhanUrl) saved.adhanUrl = DEFAULTS.adhanUrl; return saved; }
+  try { const saved = { ...DEFAULTS, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") }; saved.adhanUrl = DEFAULTS.adhanUrl; return saved; }
   catch { return { ...DEFAULTS }; }
 }
 function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
@@ -24,26 +29,24 @@ function showToast(message) {
   const toast = $("toast"); toast.textContent = message; toast.classList.add("show");
   clearTimeout(toastTimeout); toastTimeout = setTimeout(() => toast.classList.remove("show"), 3000);
 }
-function formatTime(value) {
-  const match = String(value || "").match(/^(\d{1,2}):(\d{2})/);
-  if (!match) return "—";
-  const date = new Date(); date.setHours(Number(match[1]), Number(match[2]), 0, 0);
-  return date.toLocaleTimeString([], { hour:"numeric", minute:"2-digit" });
+function formatTime(value, dateKey = prayerDateKey) {
+  const date = value instanceof Date ? value : PrayerTimeCore.zonedDateTime(dateKey || prayerTodayKey(), value, prayerTimezone);
+  return date ? PrayerTimeCore.formatTime(date, prayerTimezone) : "—";
 }
-function timeDate(value) {
-  const match = String(value || "").match(/^(\d{1,2}):(\d{2})/);
-  if (!match) return null;
-  const date = new Date(); date.setHours(Number(match[1]), Number(match[2]), 0, 0); return date;
+function timeDate(value, dateKey = prayerDateKey) {
+  return PrayerTimeCore.zonedDateTime(dateKey || prayerTodayKey(), value, prayerTimezone);
+}
+function prayerTodayKey() {
+  return PrayerTimeCore.dateKeyInTimezone(new Date(), prayerTimezone);
 }
 function upcomingPrayer() {
-  const now = new Date();
-  const main = timings.filter((p) => p.key !== "Sunrise");
-  const next = main.find((p) => timeDate(p.time) && timeDate(p.time) > now);
-  if (next) return { prayer:next, date:timeDate(next.time) };
-  const fajr = main.find((p) => p.key === "Fajr");
-  const tomorrow = fajr ? timeDate(fajr.time) : null;
-  if (tomorrow) tomorrow.setDate(tomorrow.getDate() + 1);
-  return { prayer:fajr, date:tomorrow };
+  const now = Date.now();
+  const events = PrayerTimeCore.prayerEventsFromDays(calendarDays, prayerTimezone);
+  const event = events.find((item) => item.date.getTime() > now);
+  return event ? { prayer: event.prayer, date: event.date } : { prayer: null, date: null };
+}
+function currentPrayerWindow() {
+  return PrayerTimeCore.findActivePrayerWindow(prayerWindows, new Date());
 }
 function updateHeader() {
   $("today-label").textContent = new Date().toLocaleDateString([], { weekday:"long", month:"long", day:"numeric" });
@@ -51,22 +54,91 @@ function updateHeader() {
   $("hijri-date").textContent = new Intl.DateTimeFormat("en-TN-u-ca-islamic", {day:"numeric",month:"short",year:"numeric"}).format(new Date());
 }
 function renderPrayers() {
-  const now = new Date(); const active = upcomingPrayer().prayer;
+  const now = new Date();
+  const active = currentPrayerWindow();
+  const today = prayerTodayKey();
   $("prayer-list").innerHTML = timings.map((p) => {
-    const date = timeDate(p.time); const passed = date && date < now; const isActive = active && active.key === p.key;
+    const date = timeDate(p.time, today);
+    const window = prayerWindows.find((item) => item.dateKey === today && item.key === p.key);
+    const passed = date && date < now;
+    const isActive = active && active.key === p.key && active.dateKey === today;
+    const deadline = window ? formatTime(window.end) : "—";
     return '<div class="prayer-row ' + (isActive ? "active" : "") + " " + (passed && !isActive ? "passed" : "") + '">' +
-      '<div class="prayer-glyph" aria-hidden="true">' + p.glyph + '</div><div><div class="prayer-name">' + p.label + '</div><div class="prayer-caption">' + p.caption + (isActive ? " · Up next" : "") + '</div></div><time class="prayer-time">' + formatTime(p.time) + '</time></div>';
+      '<div class="prayer-glyph" aria-hidden="true">' + p.glyph + '</div><div><div class="prayer-name">' + p.label + '</div><div class="prayer-caption">' + p.caption + (isActive ? " · In time" : "") + '</div></div><time class="prayer-time">' + formatTime(p.time, today) + '</time><div class="prayer-deadline"><small>Pray by</small><time>' + deadline + '</time></div></div>';
   }).join("");
 }
 function renderNextPrayer() {
   if (!timings.length) return;
-  const next = upcomingPrayer(); if (!next.prayer || !next.date) return;
-  $("next-prayer-name").textContent = next.prayer.label;
-  $("next-prayer-meta").textContent = formatTime(next.prayer.time) + " · " + next.date.toLocaleDateString([], { weekday:"short", month:"short", day:"numeric" });
-  const diff = Math.max(0, next.date.getTime() - Date.now());
+  const active = currentPrayerWindow();
+  const next = upcomingPrayer();
+  let target = null;
+  if (active) {
+    $("next-prayer-kicker").textContent = "PRAYER WINDOW OPEN";
+    $("next-prayer-name").textContent = active.label;
+    $("next-prayer-meta").textContent = "Pray by " + formatTime(active.end, active.dateKey) + " · " + active.dateKey;
+    target = active.end;
+    $("countdown-label").textContent = "time remaining to pray";
+  } else if (next.prayer && next.date) {
+    $("next-prayer-kicker").textContent = "UP NEXT";
+    $("next-prayer-name").textContent = next.prayer.label;
+    $("next-prayer-meta").textContent = formatTime(next.date) + " · " + next.date.toLocaleDateString([], { weekday:"short", month:"short", day:"numeric" });
+    target = next.date;
+    $("countdown-label").textContent = "starts in";
+  } else {
+    return;
+  }
+  const diff = Math.max(0, target.getTime() - Date.now());
   const parts = [Math.floor(diff / 3600000), Math.floor((diff % 3600000) / 60000), Math.floor((diff % 60000) / 1000)];
   $("countdown").textContent = parts.map((v) => String(v).padStart(2, "0")).join(":");
   renderPrayers();
+}
+async function fetchPrayerCalendar(todayKey, todaySource) {
+  const [year, month] = todayKey.split("-").map(Number);
+  const nextMonthDate = new Date(Date.UTC(year, month, 1));
+  const months = [{ year, month }, { year: nextMonthDate.getUTCFullYear(), month: nextMonthDate.getUTCMonth() + 1 }];
+  const params = new URLSearchParams({ latitude:String(state.latitude), longitude:String(state.longitude), method:state.method, school:"1" });
+  const entries = new Map();
+  const responses = await Promise.allSettled(months.map(async (item) => {
+    const response = await fetch("https://api.aladhan.com/v1/calendar/" + item.year + "/" + item.month + "?" + params, { cache:"no-store" });
+    if (!response.ok) throw new Error("Prayer calendar is unavailable.");
+    const payload = await response.json();
+    if (payload.code !== 200 || !Array.isArray(payload.data)) throw new Error("Prayer calendar could not be loaded.");
+    return payload.data;
+  }));
+  responses.forEach((result) => {
+    if (result.status !== "fulfilled") return;
+    result.value.forEach((entry) => {
+      const key = PrayerTimeCore.dateKeyFromGregorian(entry.date && entry.date.gregorian && entry.date.gregorian.date);
+      if (key && entry.timings) entries.set(key, { dateKey:key, timings:entry.timings });
+    });
+  });
+  entries.set(todayKey, { dateKey:todayKey, timings:todaySource });
+  const tomorrowKey = PrayerTimeCore.addDaysToDateKey(todayKey, 1);
+  if (!entries.has(tomorrowKey)) {
+    const [ty, tm, td] = tomorrowKey.split("-");
+    const response = await fetch("https://api.aladhan.com/v1/timings/" + td + "-" + tm + "-" + ty + "?" + params, { cache:"no-store" });
+    if (!response.ok) throw new Error("Tomorrow's Fajr time is unavailable.");
+    const payload = await response.json();
+    if (payload.code !== 200 || !payload.data || !payload.data.timings) throw new Error("Tomorrow's Fajr time could not be loaded.");
+    entries.set(tomorrowKey, { dateKey:tomorrowKey, timings:payload.data.timings });
+  }
+  return Array.from(entries.values()).sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+}
+function syncNativePrayerAlarms() {
+  const bridge = window.SalahCircleAndroid;
+  if (!bridge || !calendarDays.length || !PrayerTimeCore) return;
+  if (!state.adhanEnabled) {
+    bridge.schedulePrayerAlarms("[]");
+    return;
+  }
+  let selected = ["Fajr","Dhuhr","Asr","Maghrib","Isha"];
+  try {
+    const preferences = JSON.parse(localStorage.getItem("salahcircle-extended-v1") || "{}");
+    if (Array.isArray(preferences.adhanPrayers)) selected = selected.filter((key) => preferences.adhanPrayers.includes(key));
+  } catch {}
+  const alarms = PrayerTimeCore.prayerAlarmsFromDays(calendarDays, prayerTimezone, Date.now())
+    .filter((item) => selected.includes(item.title));
+  bridge.schedulePrayerAlarms(JSON.stringify(alarms));
 }
 async function fetchPrayerTimes() {
   const button = $("refresh-times"); button.disabled = true; button.textContent = "Loading…";
@@ -78,13 +150,18 @@ async function fetchPrayerTimes() {
     const payload = await response.json();
     if (payload.code !== 200 || !payload.data || !payload.data.timings) throw new Error("Prayer times could not be loaded.");
     const source = payload.data.timings;
-    timings = PRAYERS.map((p) => ({ ...p, time:source[p.key] })).filter((p) => p.time);
+    prayerTimezone = payload.data.meta && payload.data.meta.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    prayerDateKey = prayerTodayKey();
+    calendarDays = await fetchPrayerCalendar(prayerDateKey, source);
+    const today = calendarDays.find((day) => day.dateKey === prayerDateKey);
+    const tomorrow = calendarDays.find((day) => day.dateKey === PrayerTimeCore.addDaysToDateKey(prayerDateKey, 1));
+    timings = PRAYERS.map((p) => ({ ...p, time:(today && today.timings[p.key]) || source[p.key] })).filter((p) => p.time);
     if (!timings.length) throw new Error("No prayer timings were returned.");
-    timingsDate = todayKey();
+    prayerWindows = PrayerTimeCore.buildPrayerWindows(calendarDays, prayerTimezone);
+    timingsDate = prayerDateKey;
     updateHeader(); renderNextPrayer();
-    const timezone = payload.data.meta && payload.data.meta.timezone;
-    const deviceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    $("times-note").textContent = "Calculation: " + ((payload.data.meta && payload.data.meta.method && payload.data.meta.method.name) || "selected method") + " · Asr: Hanafi · Timezone: " + (timezone || deviceTimezone || "device local time") + ". Confirm timings with your local mosque; methods and local timetables can differ.";
+    $("times-note").textContent = "Calculation: " + ((payload.data.meta && payload.data.meta.method && payload.data.meta.method.name) || "selected method") + " · Asr: Hanafi · Location timezone: " + prayerTimezone + ". Confirm timings with your local mosque; methods and local timetables can differ.";
+    if (!tomorrow || !tomorrow.timings.Fajr) $("times-note").textContent += " Tomorrow's Fajr boundary could not be confirmed.";
     scheduleReminders();
   } catch (error) {
     $("prayer-list").innerHTML = '<div class="loading-row">Could not load prayer times. Check your connection and try again.</div>';
@@ -99,14 +176,15 @@ function renderDhikr() {
 }
 function scheduleReminders() {
   if (reminderInterval) clearInterval(reminderInterval);
+  syncNativePrayerAlarms();
   if (!state.notifications && !state.adhanEnabled) return;
-  reminderInterval = setInterval(() => { if (timingsDate !== todayKey()) { fetchPrayerTimes(); return; } checkDuePrayer(); }, 15000); checkDuePrayer();
+  reminderInterval = setInterval(() => { if (timingsDate !== prayerTodayKey()) { fetchPrayerTimes(); return; } checkDuePrayer(); }, 15000); checkDuePrayer();
 }
 function checkDuePrayer() {
   if (!timings.length) return;
-  const now = new Date(); const today = now.toDateString();
+  const now = new Date(); const today = prayerTodayKey();
   for (const prayer of timings.filter((p) => p.key !== "Sunrise")) {
-    const date = timeDate(prayer.time);
+    const date = timeDate(prayer.time, today);
     if (!date) continue;
     const delay = now.getTime() - date.getTime();
     if (delay < 0 || delay > 5 * 60 * 1000) continue;
@@ -128,12 +206,15 @@ async function enableNotifications() {
   showToast(state.notifications ? "Prayer reminders enabled while the app is open." : "Notification permission was not granted."); scheduleReminders();
 }
 async function playAdhan(showFeedback = true) {
-  const audio = $("adhan-audio"); const url = state.adhanUrl.trim();
-  if (!url) { if (showFeedback) showToast("Add a direct Adhan audio URL in Settings first."); return; }
+  const audio = $("adhan-audio");
+  state.adhanUrl = DEFAULTS.adhanUrl;
   try {
-    const parsed = new URL(url); if (!["https:", "http:"].includes(parsed.protocol)) throw new Error("Use an HTTPS audio URL.");
-    audio.src = parsed.href; await audio.play(); if (showFeedback) showToast("Playing Adhan audio.");
-  } catch { if (showFeedback) showToast("Audio could not play. Check the URL and browser permissions."); }
+    audio.src = new URL(DEFAULTS.adhanUrl, document.baseURI).href;
+    await audio.play();
+    if (showFeedback) showToast("Playing the built-in Adhan recording.");
+  } catch {
+    if (showFeedback) showToast("Audio could not play. Tap Test Adhan first and check your device volume.");
+  }
 }
 function useDeviceLocation() {
   if (!navigator.geolocation) { showToast("Device location is not supported by this browser."); return; }
@@ -153,7 +234,7 @@ function useDeviceLocation() {
 function openSettings() {
   $("location-name").value = state.locationName; $("latitude").value = state.latitude; $("longitude").value = state.longitude;
   $("calc-method").value = state.method; $("notifications-enabled").checked = state.notifications;
-  $("adhan-enabled").checked = state.adhanEnabled; $("adhan-url").value = state.adhanUrl; $("dhikr-target").value = state.dhikrTarget;
+  $("adhan-enabled").checked = state.adhanEnabled; $("dhikr-target").value = state.dhikrTarget;
   $("settings-dialog").showModal();
 }
 function saveSettings(event) {
@@ -162,7 +243,7 @@ function saveSettings(event) {
   state.locationName = $("location-name").value.trim() || "My location"; state.latitude = Number($("latitude").value);
   state.longitude = Number($("longitude").value); state.method = $("calc-method").value;
   state.notifications = $("notifications-enabled").checked; state.adhanEnabled = $("adhan-enabled").checked;
-  state.adhanUrl = $("adhan-url").value.trim(); state.dhikrTarget = Math.max(1, Number($("dhikr-target").value) || 33);
+  state.adhanUrl = DEFAULTS.adhanUrl; state.dhikrTarget = Math.max(1, Number($("dhikr-target").value) || 33);
   saveState(); $("settings-dialog").close(); renderDhikr(); updateHeader();
   if (state.notifications && "Notification" in window && Notification.permission !== "granted") {
     state.notifications = false; saveState(); showToast("Enable notifications again to grant browser permission.");
@@ -221,14 +302,14 @@ $("notifications-enabled").addEventListener("change", async (event) => {
   if (event.target.checked) await enableNotifications();
   else { state.notifications = false; saveState(); scheduleReminders(); }
 });
-$("test-adhan").addEventListener("click", () => { state.adhanUrl = $("adhan-url").value.trim(); playAdhan(true); });
+$("test-adhan").addEventListener("click", () => { state.adhanUrl = DEFAULTS.adhanUrl; playAdhan(true); });
 $("install-button").addEventListener("click", async () => {
   if (!deferredInstallPrompt) return; deferredInstallPrompt.prompt(); await deferredInstallPrompt.userChoice;
   deferredInstallPrompt = null; $("install-button").hidden = true;
 });
 window.addEventListener("beforeinstallprompt", (event) => { event.preventDefault(); deferredInstallPrompt = event; $("install-button").hidden = false; });
 window.addEventListener("appinstalled", () => { $("install-button").hidden = true; showToast("SalahCircle installed."); });
-document.addEventListener("visibilitychange", () => { if (!document.hidden) { renderNextPrayer(); checkDuePrayer(); } });
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { renderNextPrayer(); checkDuePrayer(); syncNativePrayerAlarms(); } });
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
 }

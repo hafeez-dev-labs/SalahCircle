@@ -1,5 +1,5 @@
-const CACHE_NAME = "salahcircle-shell-v4";
-const APP_SHELL = ["./", "./index.html", "./styles.css", "./migrate.js", "./app.js", "./features.js", "./onboarding.js", "./manifest.json", "./icons/icon.svg"];
+const CACHE_NAME = "salahcircle-shell-v5";
+const APP_SHELL = ["./", "./index.html", "./styles.css", "./migrate.js", "./app.js", "./features.js", "./onboarding.js", "./prayer-times-core.js", "./assets/adhan.ogg", "./manifest.json", "./icons/icon.svg"];
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));
 });

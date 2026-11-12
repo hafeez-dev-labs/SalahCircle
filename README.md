@@ -41,11 +41,17 @@ Open http://localhost:8080. Prayer times need an internet connection for AlAdhan
 ## Deploy to GitHub Pages
 The existing Pages workflow deploys the repository root on pushes to `main`. In repository Settings → Pages, select GitHub Actions as the deployment source if prompted.
 
-## Notifications and Adhan limitations
-- Prayer notifications are checked while the PWA page is active. GitHub Pages is static and has no push server or scheduled background jobs.
-- Adhan playback supports per-prayer selection and a test/stop control. On mobile, open the installed PWA, enable Adhan, use **Test Adhan** to check the audio URL and browser playback permission, and keep the app active around prayer time.
-- **Important:** browsers may suspend timers and audio when a PWA is backgrounded, the device is locked, or the app is closed. This static PWA cannot guarantee closed-app Adhan. Reliable closed-app delivery needs a push backend and platform-supported notification behavior; web push cannot reliably play an arbitrary MP3 as a notification sound.
-- Adhan audio requires a direct audio URL and user interaction; autoplay and background audio restrictions vary by platform.
+## Adhan playback and Android exact alarms
+
+- The app includes Wikimedia Commons' **"Adhan"** recording by Aishatu98, released under **CC0 1.0**. It is stored at assets/adhan.ogg, cached by the PWA service worker, and included in the Android APK. No external URL or audio host is required.
+- In the browser-only PWA, reminders and audio playback are best-effort while the page is active. Browsers can suspend timers and audio when the PWA is backgrounded, the device is locked, or the app is closed. Web notifications cannot play an arbitrary full-length Adhan recording as a custom notification sound.
+- For private family use on Android, the android/ project provides a sideloadable WebView app. It requests Android's **Alarms & reminders** special access and notification permission, schedules prayer alarms with AlarmManager.setExactAndAllowWhileIdle(), plays the bundled recording from a native media-playback foreground service, and restores alarms after reboot.
+- On each prayer-calendar refresh the Android app registers upcoming prayer times from the current and following month. Keep the app connected occasionally so the local schedule can refresh as prayer times change.
+- Exact alarms require the user to grant special access in Android Settings. Android can revoke that access; notifications and foreground playback can also be affected by device settings, battery controls, or user actions. Check the permission status in the Adhan card. No app can promise delivery if the operating system blocks or the user disables it.
+- Build the family APK by opening the android/ folder in Android Studio or using the repository's Android APK workflow. Install the debug APK directly on family devices; no store publication or account is required.
+
+Prayer times are sourced from AlAdhan. Confirm computed times with your trusted local mosque or timetable, especially where local conventions differ. The app requests Hanafi Asr timings.
+
 - Hijri dates are estimates and can differ by local moon sighting. Follow local mosque/community announcements for Ramadan and Eid.
 - Qada counts are personal records entered by the user, not a calculation of religious obligations or a fatwa.
 

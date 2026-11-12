@@ -1,0 +1,20 @@
+plugins {
+    id("com.android.application")
+}
+android {
+    namespace = "com.hafeezdevlabs.salahcircle"
+    compileSdk = 35
+    defaultConfig {
+        applicationId = "com.hafeezdevlabs.salahcircle"
+        minSdk = 26
+        targetSdk = 35
+        versionCode = 1
+        versionName = "1.0.0"
+        buildConfigField("String", "WEB_APP_URL", "\"https://hafeez-dev-labs.github.io/SalahCircle/\"")
+    }
+    buildFeatures { buildConfig = true }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+}

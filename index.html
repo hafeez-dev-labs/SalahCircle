@@ -30,8 +30,8 @@
         <div class="bismillah" lang="ar" dir="rtl">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div><div class="date-location"><span id="today-label">Today</span><span class="dot-separator">✦</span><span id="hijri-date">Islamic date</span><span class="dot-separator">✦</span><span id="location-label">Ambernath, India</span></div>
       </section>
       <section class="next-prayer card">
-        <div class="next-copy"><div class="eyebrow muted">UP NEXT</div><h2 id="next-prayer-name">Loading prayer times…</h2><p id="next-prayer-meta">Refresh to get today's schedule</p></div>
-        <div class="countdown" aria-live="polite"><span id="countdown">--:--:--</span><small>remaining</small></div>
+        <div class="next-copy"><div class="eyebrow muted" id="next-prayer-kicker">UP NEXT</div><h2 id="next-prayer-name">Loading prayer times…</h2><p id="next-prayer-meta">Refresh to get today's schedule</p></div>
+        <div class="countdown" aria-live="polite"><span id="countdown">--:--:--</span><small id="countdown-label">starts in</small></div>
       </section>
       <section class="section-block">
         <div class="section-heading"><div><span class="eyebrow muted">YOUR DAY</span><h2>Prayer times</h2></div><button class="text-button" id="refresh-times">↻ Refresh</button></div>
@@ -85,7 +85,7 @@
         <section class="how-to-card">
           <span class="how-to-number">06</span>
           <h3>Set up Adhan and protect your data</h3>
-          <p>In the Adhan card, enable the prayers you want and use <strong>Test Adhan</strong> to check your audio. Browser limits mean scheduled audio is not guaranteed when the PWA is backgrounded or closed. Use <strong>Backup and restore</strong> to save or move your local data with a JSON file.</p>
+          <p>In the Adhan card, enable the prayers you want and use <strong>Test Adhan</strong> to check your audio. Browser-only playback is best-effort when the PWA is backgrounded or closed. In the private Android app, grant <strong>Alarms & reminders</strong> access to schedule native exact alarms. Use <strong>Backup and restore</strong> to save or move your local data with a JSON file.</p>
         </section>
       </div>
       <p class="how-to-footnote">Everything is optional. Start with what is useful to your home and take it at your own pace.</p>
@@ -103,17 +103,18 @@
       <button type="button" id="use-device-location" class="secondary-button" aria-describedby="location-permission-note">◎ Use device location</button><p id="location-permission-note" class="settings-note">Your browser will ask for permission. Your coordinates are used to request prayer times and remain saved only on this device.</p>
       <label for="calc-method">Calculation method</label><select id="calc-method"><option value="1">University of Islamic Sciences, Karachi</option><option value="3">Muslim World League</option><option value="2">ISNA</option><option value="4">Umm Al-Qura, Makkah</option><option value="5">Egyptian General Authority</option><option value="0">Shia Ithna-Ashari, Leva Institute</option></select>
       <label class="toggle-row" for="notifications-enabled"><span><strong>Prayer notifications</strong><small>While this page is open</small></span><input id="notifications-enabled" type="checkbox"></label>
-      <label class="toggle-row" for="adhan-enabled"><span><strong>Play Adhan at prayer time</strong><small>Requires a direct audio URL below</small></span><input id="adhan-enabled" type="checkbox"></label>
-      <label for="adhan-url">Adhan audio URL (MP3 / OGG)</label><input id="adhan-url" type="url" placeholder="https://example.com/adhan.mp3" inputmode="url">
-      <button type="button" id="test-adhan" class="secondary-button">▶ Test Adhan</button>
+      <label class="toggle-row" for="adhan-enabled"><span><strong>Play Adhan at prayer time</strong><small>Uses the built-in recording. Android exact alarms require permission in the family app.</small></span><input id="adhan-enabled" type="checkbox"></label>
+      <p class="settings-note">Built-in Adhan · Wikimedia Commons · CC0 1.0 · available offline after the app is cached.</p>
+      <button type="button" id="test-adhan" class="secondary-button">▶ Test built-in Adhan</button>
       <label for="dhikr-target">Dhikr daily target</label><input id="dhikr-target" type="number" min="1" max="10000" value="33" required>
       <p class="settings-note">Your settings stay on this device. For reliable alerts when the app is closed, a server-backed push service is required.</p>
       <div class="dialog-actions"><button class="secondary-button" value="cancel">Cancel</button><button class="primary-button" id="save-settings" value="save">Save settings</button></div>
     </form>
   </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <audio id="adhan-audio" preload="none"></audio>
+  <audio id="adhan-audio" preload="auto"></audio>
   <script src="./migrate.js" defer></script>
+  <script src="./prayer-times-core.js" defer></script>
   <script src="./app.js" defer></script>
   <script src="./features.js" defer></script>
   <script src="./onboarding.js" defer></script>

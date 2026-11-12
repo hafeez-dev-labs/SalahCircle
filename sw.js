@@ -1,5 +1,5 @@
-const CACHE_NAME = "salahcircle-shell-v2";
-const APP_SHELL = ["./", "./index.html", "./styles.css", "./app.js", "./manifest.json", "./icons/icon.svg"];
+const CACHE_NAME = "salahcircle-shell-v3";
+const APP_SHELL = ["./", "./index.html", "./styles.css", "./migrate.js", "./app.js", "./features.js", "./manifest.json", "./icons/icon.svg"];
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));
 });
@@ -15,5 +15,8 @@ self.addEventListener("fetch", (event) => {
       caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
     }
     return response;
-  }).catch(() => caches.match("./index.html"))));
+  }).catch(() => {
+    if (request.mode === "navigate") return caches.match("./index.html");
+    throw new Error("This resource is unavailable while offline.");
+  })));
 });

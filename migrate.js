@@ -1,0 +1,1 @@
+(function(){try{const raw=localStorage.getItem("salahcircle-state-v1");if(!raw)return;const state=JSON.parse(raw);const today=new Date().toLocaleDateString("en-CA");if(state.quranPages>0&&state.quranDate&&state.quranDate!==today)localStorage.setItem("salahcircle-legacy-quran",JSON.stringify({date:state.quranDate,pages:state.quranPages}));}catch(_){}})();

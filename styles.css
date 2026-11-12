@@ -32,3 +32,14 @@ body{background:var(--cream);background-image:radial-gradient(circle at 1px 1px,
 .how-to-actions{margin-top:18px}
 @media(max-width:600px){.how-to-dialog form{padding:19px}.how-to-grid{grid-template-columns:1fr;gap:8px}.how-to-card{padding:12px 13px}.how-to-card h3{font-size:15px}.how-to-card p{font-size:10px}.how-to-dialog{max-height:90dvh}}
 @media(max-width:420px){.how-to-trigger{width:42px;justify-content:center;padding:0}.how-to-trigger>span:last-child{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}.topbar-actions{gap:7px}}
+
+.prayer-row{grid-template-columns:42px minmax(0,1fr) auto auto}
+.prayer-deadline{min-width:72px;text-align:right;font-variant-numeric:tabular-nums}
+.prayer-deadline small,.prayer-deadline time{display:block}
+.prayer-deadline small{font-size:9px;color:var(--muted);margin-bottom:4px}
+.prayer-deadline time{font-size:12px;font-weight:700;color:var(--forest-2)}
+.prayer-row.passed .prayer-deadline time{color:#89958c}
+.native-alarm-panel{margin-top:14px;padding:13px;border:1px solid #dfd4b8;border-radius:12px;background:#f8f3e5}
+.native-alarm-panel>strong{display:block;color:var(--forest);font-size:11px}
+.native-alarm-panel .feature-note{margin:6px 0}
+@media(max-width:520px){.prayer-row{grid-template-columns:34px minmax(0,1fr) auto}.prayer-deadline{grid-column:2/4;display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:-7px}.prayer-deadline small{margin:0}.prayer-deadline time{font-size:11px}}

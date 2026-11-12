@@ -18,6 +18,7 @@ let prayerTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 let prayerDateKey = "";
 let calendarDays: any[] = [];
 let prayerWindows: any[] = [];
+let nativeAlarmScheduleActive = false;
 const PrayerTimeCore: any = (window as any).SalahCirclePrayerTimeCore;
 let deferredInstallPrompt = null;
 let toastTimeout = null;
@@ -129,9 +130,10 @@ async function fetchPrayerCalendar(todayKey, todaySource) {
 }
 function syncNativePrayerAlarms() {
   const bridge = (window as any).SalahCircleAndroid;
-  if (!bridge || !calendarDays.length || !PrayerTimeCore) return;
+  if (!bridge || !calendarDays.length || !PrayerTimeCore) { nativeAlarmScheduleActive = false; return; }
   if (!state.adhanEnabled) {
     bridge.schedulePrayerAlarms("[]");
+    nativeAlarmScheduleActive = false;
     return;
   }
   let selected = ["Fajr","Dhuhr","Asr","Maghrib","Isha"];
@@ -141,7 +143,8 @@ function syncNativePrayerAlarms() {
   } catch {}
   const alarms = PrayerTimeCore.prayerAlarmsFromDays(calendarDays, prayerTimezone, Date.now())
     .filter((item) => selected.includes(item.title));
-  bridge.schedulePrayerAlarms(JSON.stringify(alarms));
+  const result = bridge.schedulePrayerAlarms(JSON.stringify(alarms));
+  nativeAlarmScheduleActive = PrayerTimeCore.nativeAlarmScheduleReady(result, alarms.length);
 }
 async function fetchPrayerTimes() {
   const button = $("refresh-times"); button.disabled = true; button.textContent = "Loading…";
@@ -196,10 +199,10 @@ function checkDuePrayer() {
     if (localStorage.getItem(firedKey) === "1") continue;
     localStorage.setItem(firedKey, "1");
     state.lastReminder = key; saveState();
-    if (state.notifications && "Notification" in window && Notification.permission === "granted") {
+    if (!nativeAlarmScheduleActive && state.notifications && "Notification" in window && Notification.permission === "granted") {
       try { new Notification("It’s time for " + prayer.label, { body:"A gentle Salah reminder · " + state.locationName, icon:"./icons/icon.svg", tag:key }); } catch { /* Browser may restrict notification delivery. */ }
     }
-    if (state.adhanEnabled && state.adhanUrl) playAdhan(false);
+    if (state.adhanEnabled && state.adhanUrl && !nativeAlarmScheduleActive) playAdhan(false);
   }
 }
 async function enableNotifications() {

@@ -17,7 +17,10 @@
         <span class="brand-mark" aria-hidden="true">◒</span>
         <span><strong>SalahCircle</strong><small>For the people you pray for</small></span>
       </a>
-      <button class="icon-button" id="settings-open" aria-label="Open settings" title="Settings">⚙</button>
+      <div class="topbar-actions">
+        <button class="how-to-trigger" id="how-to-open" type="button" aria-label="How to use SalahCircle" title="How to use SalahCircle"><span class="how-to-trigger-mark" aria-hidden="true">?</span><span>How to use</span></button>
+        <button class="icon-button" id="settings-open" aria-label="Open settings" title="Settings">⚙</button>
+      </div>
     </header>
     <main>
       <section class="welcome">
@@ -46,6 +49,52 @@
     </main>
     <footer><span>SalahCircle</span><span>Made for your circle, with care.</span><button id="install-button" class="install-button" hidden>＋ Install app</button></footer>
   </div>
+  <dialog id="how-to-dialog" class="settings-dialog how-to-dialog" aria-labelledby="how-to-title" aria-describedby="how-to-intro">
+    <form method="dialog">
+      <div class="dialog-heading">
+        <div><span class="eyebrow muted">A QUICK TOUR</span><h2 id="how-to-title">How to use SalahCircle</h2></div>
+        <button class="icon-button" type="submit" value="close" aria-label="Close guide">✕</button>
+      </div>
+      <p class="how-to-intro" id="how-to-intro">A little guide to help you find your way around. Your information stays on this device, and you can reopen this guide from the header whenever you need it.</p>
+      <div class="how-to-grid">
+        <section class="how-to-card">
+          <span class="how-to-number">01</span>
+          <h3>Set up your prayer times</h3>
+          <p>Start with the prayer schedule and countdown at the top. Open <strong>Settings</strong> to choose your location and calculation method. You can also request prayer notifications and configure your Adhan audio there.</p>
+        </section>
+        <section class="how-to-card">
+          <span class="how-to-number">02</span>
+          <h3>Build your family circle</h3>
+          <p>Add the people in your home, then use the five daily check-ins to encourage one another. Check-ins are private to this device and are never a measure of anyone’s faith.</p>
+        </section>
+        <section class="how-to-card">
+          <span class="how-to-number">03</span>
+          <h3>Keep dhikr and Quran close</h3>
+          <p>Tap the dhikr counter as you recite, choose a phrase, and set a daily target. Log the pages you read in <strong>Quran reading</strong> and adjust your daily goal at any time.</p>
+        </section>
+        <section class="how-to-card">
+          <span class="how-to-number">04</span>
+          <h3>Reflect and make intentions</h3>
+          <p>Read the daily ayah, save reflections you want to revisit, keep duas and good intentions in your family list, and use the daily good-deeds checklist as a gentle prompt.</p>
+        </section>
+        <section class="how-to-card">
+          <span class="how-to-number">05</span>
+          <h3>Explore your worship toolkit</h3>
+          <p>Scroll below the main sections for the <strong>Qibla compass</strong>, guided morning/evening and post-Salah <strong>adhkar</strong>, Quran reading history, a personal <strong>Qada tracker</strong>, and the estimated Islamic calendar.</p>
+        </section>
+        <section class="how-to-card">
+          <span class="how-to-number">06</span>
+          <h3>Set up Adhan and protect your data</h3>
+          <p>In the Adhan card, enable the prayers you want and use <strong>Test Adhan</strong> to check your audio. Browser limits mean scheduled audio is not guaranteed when the PWA is backgrounded or closed. Use <strong>Backup and restore</strong> to save or move your local data with a JSON file.</p>
+        </section>
+      </div>
+      <p class="how-to-footnote">Everything is optional. Start with what is useful to your home and take it at your own pace.</p>
+      <div class="dialog-actions how-to-actions">
+        <button class="secondary-button" id="how-to-settings" type="button">Open Settings</button>
+        <button class="primary-button" type="submit" value="done" autofocus>Got it</button>
+      </div>
+    </form>
+  </dialog>
   <dialog id="settings-dialog" class="settings-dialog">
     <form method="dialog" id="settings-form">
       <div class="dialog-heading"><div><span class="eyebrow muted">MAKE IT YOURS</span><h2>Settings</h2></div><button class="icon-button" value="cancel" aria-label="Close settings">✕</button></div>
@@ -67,5 +116,6 @@
   <script src="./migrate.js" defer></script>
   <script src="./app.js" defer></script>
   <script src="./features.js" defer></script>
+  <script src="./onboarding.js" defer></script>
 </body>
 </html>

@@ -16,6 +16,7 @@ A family-friendly Salah and dhikr Progressive Web App with an Islamic-inspired e
 - Daily Quran reflection with Arabic text, translation, reference, and local favourites.
 - Family intentions / dua list and a daily good-deeds checklist for Ramadan or any time.
 - Approximate Hijri date using the browser's Islamic calendar implementation.
+- First-visit **How to use SalahCircle** guide, reopenable from the header.
 - Installable PWA shell, responsive styling, and offline caching of app files.
 
 ## Family privacy

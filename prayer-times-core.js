@@ -78,11 +78,14 @@
       return date?{date,prayer:{key,label:key},dateKey:day.dateKey}:null;
     }).filter(Boolean)).sort((a,b)=>a.date-b.date);
   }
+  function nativeAlarmScheduleReady(result,alarmCount){
+    return typeof result==="string"&&/^scheduled:[1-9]\d*$/.test(result)&&Number(alarmCount)>0;
+  }
   function prayerAlarmsFromDays(days,timeZone,now){
     const stamp=now instanceof Date?now.getTime():Number(now||Date.now());
     return prayerEventsFromDays(days,timeZone).filter(item=>item.date.getTime()>stamp).map(item=>({
       id:item.dateKey+":"+item.prayer.key,title:item.prayer.label,triggerAtMillis:item.date.getTime()
     }));
   }
-  return{parseClock,dateKeyParts,addDaysToDateKey,dateKeyFromGregorian,dateKeyInTimezone,zonedDateTime,formatTime,buildPrayerWindows,findActivePrayerWindow,prayerEventsFromDays,prayerAlarmsFromDays};
+  return{parseClock,dateKeyParts,addDaysToDateKey,dateKeyFromGregorian,dateKeyInTimezone,zonedDateTime,formatTime,buildPrayerWindows,findActivePrayerWindow,prayerEventsFromDays,nativeAlarmScheduleReady,prayerAlarmsFromDays};
 });

@@ -37,3 +37,10 @@ test("native alarm payload contains upcoming obligatory prayers only",()=>{
  assert.equal(alarms.some(a=>a.id==="2026-11-12:Dhuhr"),true);
  assert.equal(alarms.some(a=>a.id==="2026-11-13:Fajr"),true);
 });
+test("browser Adhan fallback is suppressed only when native alarms are registered",()=>{
+ assert.equal(core.nativeAlarmScheduleReady("scheduled:5",5),true);
+ assert.equal(core.nativeAlarmScheduleReady("scheduled:0",0),false);
+ assert.equal(core.nativeAlarmScheduleReady("permission_required",5),false);
+ assert.equal(core.nativeAlarmScheduleReady("error:SecurityException",5),false);
+ assert.equal(core.nativeAlarmScheduleReady(null,5),false);
+});
